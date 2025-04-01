@@ -16,7 +16,6 @@ LOG_FILE="$LOG_DIR/deploy_$TIMESTAMP.log"
 mkdir -p "$BACKUP_DIR"
 mkdir -p "$LOG_DIR"
 
-
 # カラー設定
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -39,6 +38,7 @@ DEPENDENCIES=(
   "zsh"
   "vim"
   "tmux"
+  "neovim"
 )
 
 
@@ -253,7 +253,7 @@ do_update() {
 
 # 利用可能な設定ファイル一覧
 do_list() {
-  log "INFO" "利用可能な設定ファイル:"
+  echo -e "利用可能な設定ファイル:"
   
   echo -e "${BLUE}ソースファイル${NC} -> ${GREEN}リンク先${NC} [${YELLOW}状態${NC}]"
   echo "-------------------------------------------------------"
@@ -287,15 +287,31 @@ do_list() {
 
 # 依存関係チェック
 check_dependencies() {
-  log "INFO" "基本的な依存関係をチェックします..."
+  log "INFO" "依存関係をチェックします..."
+  
+  local missing_deps=()
   
   for cmd in "${DEPENDENCIES[@]}"; do
     if ! command -v $cmd >/dev/null 2>&1; then
       log "WARNING" "$cmd がインストールされていません"
+      missing_deps+=("$cmd")
     else
       log "INFO" "$cmd: インストール済み ($(command -v $cmd))"
     fi
   done
+  
+  # 不足している依存関係がある場合
+  if [ ${#missing_deps[@]} -gt 0 ]; then
+    log "WARNING" "以下の依存関係が満たされていません: ${missing_deps[*]}"
+    if [ "$FORCE" = false ]; then
+      read -p "依存関係が不足していますが、続行しますか？ [y/N] " confirm
+      if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        log "INFO" "インストールを中止しました"
+        exit 1
+      fi
+    fi
+    log "INFO" "依存関係の不足を無視して続行します"
+  fi
 }
 
 # 引数解析
@@ -341,11 +357,9 @@ case "$MODE" in
     ;;
   list)
     do_list
-    rm $LOG_FILE
     ;;
   help)
     show_help
-    rm $LOG_FILE
     ;;
 esac
 
